@@ -15,7 +15,7 @@ class ThemeGenerator {
     ];
     for (final generator in generators) {
       if (generator.matchesSchema(json)) {
-        return generator.generate(json, pubspecConfig);
+        return generator.generate(json,themeFileName.replaceFirst('.json', ''), pubspecConfig);
       }
     }
     final content = ThemeColorsGenerator().generate(
@@ -32,5 +32,5 @@ abstract class BaseGenerator {
   bool matchesSchema(Map<String, dynamic> schema);
 
   GeneratedContent generate(
-      Map<String, dynamic> schema, PubspecConfig pubspecConfig);
+      Map<String, dynamic> schema,String path, PubspecConfig pubspecConfig);
 }

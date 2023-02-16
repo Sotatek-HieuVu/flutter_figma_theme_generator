@@ -11,7 +11,7 @@ class FontGenerator extends BaseGenerator {
 
   @override
   GeneratedContent generate(
-      Map<String, dynamic> schema, PubspecConfig pubspecConfig) {
+      Map<String, dynamic> schema,String path, PubspecConfig pubspecConfig) {
     final typography = schema; //['Typography'] as Map<String, dynamic>;
     final textStyles = <String, TextStyle>{};
     final files = <String, String>{};
@@ -81,7 +81,7 @@ class FontGenerator extends BaseGenerator {
 
   String? _fromDataOrTypography(String? data, Map<String, dynamic> typography) {
     if (data == null) return null;
-    if (data.contains(RegExp(r'(\/|\*|round\(.+\)|\(.+\))'))) {
+    if (data.contains(RegExp(r'(/|\*|round\(.+\)|\(.+\))'))) {
       return RegExp(r'({[^{}]+}|\d+|round\(.+\)|\(.+\))')
           .allMatches(data)
           .fold(1.0, (previousValue, element) {

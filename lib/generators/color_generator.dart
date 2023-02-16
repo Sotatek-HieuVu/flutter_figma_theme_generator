@@ -3,7 +3,6 @@ import 'package:flutter_figma_theme_generator/config/pubspec_config.dart';
 import 'package:flutter_figma_theme_generator/generators/theme_generator.dart';
 import 'package:flutter_figma_theme_generator/model/generated_content.dart';
 import 'package:flutter_figma_theme_generator/utils/case_utils.dart';
-import 'dart:io';
 
 class ColorGenerator extends BaseGenerator {
   final _warnings = <String>[];
@@ -13,46 +12,111 @@ class ColorGenerator extends BaseGenerator {
 
   @override
   GeneratedContent generate(
-      Map<String, dynamic> schema, PubspecConfig pubspecConfig) {
+      Map<String, dynamic> schema, String path, PubspecConfig pubspecConfig) {
     _warnings.clear();
 
     final colorPalette = schema;
-    final colors = <String, String>{};
+    final colors = <String, dynamic>{};
     final files = <String, String>{};
     for (final entry in colorPalette.entries) {
       final json = entry.value as Map<String, dynamic>;
       colors.addAll(_generateColors(entry.key, json, colorPalette));
     }
     var colorFile = '';
-    if(!File('lib/styles/${pubspecConfig.projectName.snakeCase}_colors').existsSync()){
-      colorFile += '''import 'package:flutter/material.dart';\n\n''';
-      colorFile += 'class ${pubspecConfig.projectName.upperCamelCase}Colors {\n';
-    }
+    var fileName = path.snakeCase;
+    // if(!File('lib/styles/$fileName').existsSync()){
+    //   // colorFile += '''import 'package:flutter/material.dart';\n\n''';
+    //   // colorFile += 'class ${fileName.upperCamelCase} {\n';
+    // }
+    colorFile +=
+        '''import 'package:${pubspecConfig.projectName}/styles/import.dart';\n\n''';
+    // colorFile +=
+    //     '''import 'package:flutter/material.dart';\n\n''';
     colorFile += colors.entries.map((color) {
-      if (color.value.startsWith("linear-gradient")) {
-        return '  static LinearGradient ${color.key} = ${linearGradientColor(color.value)};\n';
-      } else if (color.value.startsWith("{") && color.value.endsWith("}")) {
-        var colorValue =
-            color.value.replaceFirst('{', '').replaceFirst('}', '').camelCase;
-        return '  static const ${color.key} = $colorValue;\n';
+      // if (color.value.startsWith("linear-gradient")) {
+      //   return '  static LinearGradient ${color.key} = ${linearGradientColor(color.value)};\n';
+      // } else if (color.value.startsWith("{") && color.value.endsWith("}")) {
+      //   var colorValue =
+      //       color.value.replaceFirst('{', '').replaceFirst('}', '').camelCase;
+      //   return '  static const ${color.key} = $colorValue;\n';
+      // }
+      // return '  static const ${color.key} = ${hexOrRGBToColor(color.value)};\n';
+      var key = color.key;
+      if (!RegExp(r"^[a-zA-Z][\w]*$").hasMatch(color.key)) {
+        key = color.key.replaceAll(RegExp('[^A-Za-z0-9]'), '');
       }
-      return '  static const ${color.key} = ${hexOrRGBToColor(color.value)};\n';
+      if (color.value is String && color.value.startsWith("{") && color.value.endsWith("}")) {
+        var colorValue =(color.value.replaceFirst('{', '').replaceFirst('}', '') as String).camelCase;
+        return 'const $key = $colorValue;\n';
+      }
+      if (color.value is String && color.value.startsWith("\$")) {
+        var colorValue =(color.value.replaceFirst('\$', '') as String).camelCase;
+        return 'const $key = $colorValue;\n';
+      }
+      if (color.value is Map<String, dynamic>) {
+        var colorValue = '';
+        colorValue += '{';
+        color.value.forEach((k,v){
+          colorValue += '"$k"';
+          colorValue += ' :';
+          if(v is String && v.startsWith("{") && v.endsWith("}")){
+            var colorValue0 = v.replaceFirst('{', '').replaceFirst('}', '').camelCase;
+            if(colorValue0.contains('%')){
+              colorValue0 = colorValue0.replaceFirst('%', '');
+            }
+            colorValue += colorValue0;
+          }
+          else if(v is String && v.startsWith('\$')){
+            var colorValue0 = v.replaceFirst('\$', '').camelCase;
+            colorValue += colorValue0;
+          }
+          else{
+            colorValue += '"$v"';
+          }
+          colorValue += ', ';
+        });
+        colorValue += '}';
+        return 'const $key = $colorValue;\n';
+      }
+      if (color.value is List) {
+        // print('shadow100shadow100shadow100 ${color.value}');
+        // var colorValue = '';
+        // var value = '';
+        // value += '[';
+        // color.value.foEach((e){
+        //   value += '{';
+        //   value += '""';
+        //   value += '},';
+        // });
+        // value += ']';
+        // color.value.forEach((v){
+        // });
+        return 'const $key = "${color.value}";\n';
+      }
+      return 'const $key = "${color.value}";\n';
     }).join();
-    if(!File('lib/styles/${pubspecConfig.projectName.snakeCase}_colors').existsSync()){
-      colorFile += '}\n';
-    }
-    files['${pubspecConfig.projectName.snakeCase}_colors'] = colorFile;
+    // if(!File('lib/styles/$fileName').existsSync()){
+    //   colorFile += '}\n';
+    // }
+    files[fileName] = colorFile;
     return GeneratedContent(files, _warnings);
   }
 
-  Map<String, String> _generateColors(String key, Map<String, dynamic> data,
+  Map<String, dynamic> _generateColors(String key, Map<String, dynamic> data,
       Map<String, dynamic> colorPalette) {
-    final colors = <String, String>{};
+    final colors = <String, dynamic>{};
     for (final entry in data.entries) {
-      if (entry.key == 'value' && entry.value is String && _isColor(data)) {
+      if (entry.key == 'value' && entry.value is String) {
+        //&& _isColor(data)
+        colors[key.camelCase] = '${entry.value}'.replaceAll('%', '');
+      }
+      else if (entry.key == 'value' && entry.value is Map<String, dynamic>){
         colors[key.camelCase] = entry.value;
-      } else if (!_isColorConfig(entry.key) &&
-          entry.value is Map<String, dynamic>) {
+      }
+      if (entry.key == 'value' && entry.value is List){
+        colors[key.camelCase] = entry.value;
+      }
+      else if (entry.value is Map<String, dynamic>) { //!_isColorConfig(entry.key) &&
         colors.addAll(_generateColors('${key}_${entry.key}'.camelCase,
             entry.value as Map<String, dynamic>, colorPalette));
       }
@@ -85,6 +149,13 @@ class ColorGenerator extends BaseGenerator {
 
   bool _isColor(dynamic data) =>
       data is Map<String, dynamic> && data['type'] == 'color';
+  String removeSpecial(String value){
+    var value0 = value ;
+    if (!RegExp(r"^[a-zA-Z][\w]*$").hasMatch(value)) {
+      value0 = value.replaceAll(RegExp('[^A-Za-z0-9]'), '');
+    }
+    return value0;
+  }
   String linearGradientColor(String colorStr) {
     //linear-gradient(45deg, #6562E7 0%, #B49AE5 50%, #73DFD7 100%)
     var colorStr0 = colorStr

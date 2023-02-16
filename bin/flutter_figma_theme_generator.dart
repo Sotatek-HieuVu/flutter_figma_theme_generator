@@ -53,13 +53,9 @@ Future<void> main(List<String> args) async {
   final nonThemeGenerators = [fontGenerator, ColorGenerator()];
   final contents = await _readFiles(themeFiles);
   var defaultTheme = pubspecConfig.defaultTheme ??
-      contents.entries
-          .firstWhere(
-              (element) {
-                return nonThemeGenerators.any((e) => e.matchesSchema(element.value));
-              },
-              orElse: () => throw Exception('Could not find any theme'))
-          .key;
+      contents.entries.firstWhere((element) {
+        return nonThemeGenerators.any((e) => e.matchesSchema(element.value));
+      }, orElse: () => throw Exception('Could not find any theme')).key;
   final hasFontTheme = contents.values.any(fontGenerator.matchesSchema);
   final generatedContents = <GeneratedContent>[];
   final warnings = <String>[];
@@ -71,14 +67,15 @@ Future<void> main(List<String> args) async {
 
   generatedContents.add(await _processThemeFile(
       contents[defaultTheme]!, defaultTheme, pubspecConfig));
-  generatedContents.addAll(await Future.wait(contents.entries
-      .where((element) => element.key != defaultTheme)
-      .map((e) => _processThemeFile(e.value, e.key, pubspecConfig))));
-  final generatedInstances =
-      generatedContents.map((e) {
-        return e.themeInstanceName;
-      }).whereType<String>();
-  if(generatedInstances.isNotEmpty){
+  generatedContents.addAll(await Future.wait(
+      contents.entries.where((element) => element.key != defaultTheme).map((e) {
+    return _processThemeFile(e.value, e.key, pubspecConfig);
+  })));
+
+  final generatedInstances = generatedContents.map((e) {
+    return e.themeInstanceName;
+  }).whereType<String>();
+  if (generatedInstances.isNotEmpty) {
     generatedContents.add(await _generateThemeFile(
         generatedInstances, pubspecConfig, hasFontTheme));
   }
@@ -98,28 +95,35 @@ Future<GeneratedContent> _generateThemeFile(Iterable<String> generatedInstances,
     PubspecConfig pubspecConfig, bool hasFontTheme) async {
   final generatedTheme = CurrentThemeGenerator.generateTheme(
       generatedInstances, pubspecConfig, hasFontTheme);
-  await _createFile(generatedTheme);
+  await _createFile(generatedTheme, pubspecConfig);
   return generatedTheme;
 }
 
-Future<void> _createFile(GeneratedContent generatedTheme) async {
-  final themeDirectory = Directory(join('lib', 'styles'));
+Future<void> _createFile(
+    GeneratedContent generatedTheme, PubspecConfig pubspecConfig,
+    {String folder = 'styles'}) async {
+  final themeDirectory = Directory(join('lib', folder));
   if (!themeDirectory.existsSync()) {
     themeDirectory.createSync(recursive: true);
   }
-
+  final fileImport = File(join('lib', folder, 'import.dart'));
+  if (!fileImport.existsSync()) {
+    fileImport.createSync(recursive: true);
+  }
+  String strImport = '';
   await Future.wait(generatedTheme.files.entries.map((fileEntry) async {
-    final file = File(join('lib', 'styles', '${fileEntry.key}.dart'));
+    final file = File(join('lib', folder, '${fileEntry.key}.dart'));
     if (!file.existsSync()) {
       file.createSync(recursive: true);
       print('created file ${file.path}');
-    }
-    else{
+    } else {
       print('update file ${file.path}');
     }
     await file.writeAsString(fileEntry.value);
-
+    strImport +=
+        "export 'package:${pubspecConfig.projectName}/$folder/${fileEntry.key}.dart';\n";
   }));
+  fileImport.writeAsStringSync(strImport,mode: FileMode.append);
 }
 
 Future<Map<String, Map<String, dynamic>>> _readFiles(
@@ -135,6 +139,6 @@ Future<GeneratedContent> _processThemeFile(Map<String, dynamic> content,
     String path, PubspecConfig pubspecConfig) async {
   final generatedTheme =
       ThemeGenerator.generateTheme(content, path, pubspecConfig);
-  await _createFile(generatedTheme);
+  await _createFile(generatedTheme, pubspecConfig);
   return generatedTheme;
 }
