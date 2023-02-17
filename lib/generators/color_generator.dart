@@ -23,81 +23,89 @@ class ColorGenerator extends BaseGenerator {
       colors.addAll(_generateColors(entry.key, json, colorPalette));
     }
     var colorFile = '';
-    var fileName = path.snakeCase;
-    // if(!File('lib/styles/$fileName').existsSync()){
-    //   // colorFile += '''import 'package:flutter/material.dart';\n\n''';
-    //   // colorFile += 'class ${fileName.upperCamelCase} {\n';
-    // }
+    // var fileName = path.snakeCase;
+    var fileName = path;
     colorFile +=
         '''import 'package:${pubspecConfig.projectName}/styles/import.dart';\n\n''';
-    // colorFile +=
-    //     '''import 'package:flutter/material.dart';\n\n''';
     colorFile += colors.entries.map((color) {
-      // if (color.value.startsWith("linear-gradient")) {
-      //   return '  static LinearGradient ${color.key} = ${linearGradientColor(color.value)};\n';
-      // } else if (color.value.startsWith("{") && color.value.endsWith("}")) {
-      //   var colorValue =
-      //       color.value.replaceFirst('{', '').replaceFirst('}', '').camelCase;
-      //   return '  static const ${color.key} = $colorValue;\n';
-      // }
-      // return '  static const ${color.key} = ${hexOrRGBToColor(color.value)};\n';
       var key = color.key;
       if (!RegExp(r"^[a-zA-Z][\w]*$").hasMatch(color.key)) {
         key = color.key.replaceAll(RegExp('[^A-Za-z0-9]'), '');
       }
-      if (color.value is String && color.value.startsWith("{") && color.value.endsWith("}")) {
-        var colorValue =(color.value.replaceFirst('{', '').replaceFirst('}', '') as String).camelCase;
-        return 'const $key = $colorValue;\n';
-      }
-      if (color.value is String && color.value.startsWith("\$")) {
-        var colorValue =(color.value.replaceFirst('\$', '') as String).camelCase;
-        return 'const $key = $colorValue;\n';
-      }
-      if (color.value is Map<String, dynamic>) {
+      if (color.value is String) {
+        if (color.value.startsWith("#")) {
+          // return 'Color $key = HexColor.fromHex("${color.value}");\n';
+          return 'const $key = Color(0xff${color.value.toString().replaceFirst('#', '')});\n';
+        }
+        if (color.value.startsWith("rgba")) {
+          List rgbaList =
+              color.value.substring(5, color.value.length - 1).split(",");
+          if (rgbaList.length == 2) {
+            var color0 = '';
+            if (rgbaList[0] is String &&
+                rgbaList[0].toString().startsWith('{') &&
+                rgbaList[0].toString().endsWith('}')) {
+              color0 = rgbaList[0]
+                  .toString()
+                  .replaceFirst('{', '')
+                  .replaceFirst('}', '')
+                  .camelCase;
+            }
+            return 'Color $key = $color0.withOpacity(${(int.parse((rgbaList[1].replaceAll(RegExp('[^0-9]'), '')))) / 100});\n';
+          }
+          return 'const $key = Color.fromRGBO(${int.parse(rgbaList[0])}, ${int.parse(rgbaList[1])}, ${int.parse(rgbaList[2])}, ${double.parse(rgbaList[3])});\n';
+        }
+        if (color.value.startsWith("rgb")) {
+          List rgbList = color.value
+              .substring(4, color.value.length - 1)
+              .split(",")
+              .map((c) => int.parse(c))
+              .toList();
+          return 'const $key = Color.fromRGBO(${rgbList[0]}, ${rgbList[1]}, ${rgbList[1]}, 1.0);\n';
+        }
+        // if (color.value.startsWith("linear-gradient")) {
+        //   return 'LinearGradient ${color.key} = ${linearGradientColor(color.value)};\n';
+        // }
+        if (color.value.startsWith("{") && color.value.endsWith("}")) {
+          var colorValue = (color.value
+                  .replaceFirst('{', '')
+                  .replaceFirst('}', '') as String)
+              .camelCase;
+          return 'const $key = $colorValue;\n';
+        }
+        if (color.value.startsWith("\$")) {
+          var colorValue =
+              (color.value.replaceFirst('\$', '') as String).camelCase;
+          return 'const $key = $colorValue;\n';
+        }
+      } else if (color.value is Map<String, dynamic>) {
         var colorValue = '';
         colorValue += '{';
-        color.value.forEach((k,v){
+        color.value.forEach((k, v) {
           colorValue += '"$k"';
           colorValue += ' :';
-          if(v is String && v.startsWith("{") && v.endsWith("}")){
-            var colorValue0 = v.replaceFirst('{', '').replaceFirst('}', '').camelCase;
-            if(colorValue0.contains('%')){
+          if (v is String && v.startsWith("{") && v.endsWith("}")) {
+            var colorValue0 =
+                v.replaceFirst('{', '').replaceFirst('}', '').camelCase;
+            if (colorValue0.contains('%')) {
               colorValue0 = colorValue0.replaceFirst('%', '');
             }
             colorValue += colorValue0;
-          }
-          else if(v is String && v.startsWith('\$')){
+          } else if (v is String && v.startsWith('\$')) {
             var colorValue0 = v.replaceFirst('\$', '').camelCase;
             colorValue += colorValue0;
-          }
-          else{
+          } else {
             colorValue += '"$v"';
           }
           colorValue += ', ';
         });
         colorValue += '}';
         return 'const $key = $colorValue;\n';
-      }
-      if (color.value is List) {
-        // print('shadow100shadow100shadow100 ${color.value}');
-        // var colorValue = '';
-        // var value = '';
-        // value += '[';
-        // color.value.foEach((e){
-        //   value += '{';
-        //   value += '""';
-        //   value += '},';
-        // });
-        // value += ']';
-        // color.value.forEach((v){
-        // });
+      } else if (color.value is List) {
         return 'const $key = "${color.value}";\n';
       }
       return 'const $key = "${color.value}";\n';
     }).join();
-    // if(!File('lib/styles/$fileName').existsSync()){
-    //   colorFile += '}\n';
-    // }
     files[fileName] = colorFile;
     return GeneratedContent(files, _warnings);
   }
@@ -109,14 +117,13 @@ class ColorGenerator extends BaseGenerator {
       if (entry.key == 'value' && entry.value is String) {
         //&& _isColor(data)
         colors[key.camelCase] = '${entry.value}'.replaceAll('%', '');
-      }
-      else if (entry.key == 'value' && entry.value is Map<String, dynamic>){
+      } else if (entry.key == 'value' && entry.value is Map<String, dynamic>) {
         colors[key.camelCase] = entry.value;
       }
-      if (entry.key == 'value' && entry.value is List){
+      if (entry.key == 'value' && entry.value is List) {
         colors[key.camelCase] = entry.value;
-      }
-      else if (entry.value is Map<String, dynamic>) { //!_isColorConfig(entry.key) &&
+      } else if (entry.value is Map<String, dynamic>) {
+        //!_isColorConfig(entry.key) &&
         colors.addAll(_generateColors('${key}_${entry.key}'.camelCase,
             entry.value as Map<String, dynamic>, colorPalette));
       }
@@ -149,13 +156,14 @@ class ColorGenerator extends BaseGenerator {
 
   bool _isColor(dynamic data) =>
       data is Map<String, dynamic> && data['type'] == 'color';
-  String removeSpecial(String value){
-    var value0 = value ;
+  String removeSpecial(String value) {
+    var value0 = value;
     if (!RegExp(r"^[a-zA-Z][\w]*$").hasMatch(value)) {
       value0 = value.replaceAll(RegExp('[^A-Za-z0-9]'), '');
     }
     return value0;
   }
+
   String linearGradientColor(String colorStr) {
     //linear-gradient(45deg, #6562E7 0%, #B49AE5 50%, #73DFD7 100%)
     var colorStr0 = colorStr
@@ -174,10 +182,10 @@ class ColorGenerator extends BaseGenerator {
         begin = 'Alignment.centerLeft';
         end = 'Alignment.centerRight';
       }
-      if (element.trim().startsWith('#') && element.trim().endsWith('%')) {
+      if (element.trim().startsWith('#')) {
         var arr = element.trim().split(' ');
         linearGradient +=
-            '       const Color(0xff${arr[0].replaceFirst('#', '')}).withOpacity(${int.parse(arr[1].replaceFirst('%', '')) / 100}),\n';
+            '       const Color(0xff${arr[0].replaceFirst('#', '')}).withOpacity(${int.parse(arr[1]) / 100}),\n';
       }
     }
     return 'LinearGradient(\n      begin: $begin,\n      end: $end, \n      colors: [\n$linearGradient      ])';
@@ -196,8 +204,6 @@ class ColorGenerator extends BaseGenerator {
           .map((c) => int.parse(c))
           .toList();
       return 'Color.fromRGBO(${rgbList[0]}, ${rgbList[1]}, ${rgbList[1]}, 1.0)';
-    } else if (colorStr.startsWith("#")) {
-      return 'Color(0xff${colorStr.replaceFirst('#', '')})';
     } else if (hexColorRegex.hasMatch(colorStr)) {
       if (colorStr.length == 4) {
         colorStr = colorStr + colorStr.substring(1, 4);

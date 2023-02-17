@@ -109,9 +109,17 @@ Future<void> _createFile(
   final fileImport = File(join('lib', folder, 'import.dart'));
   if (!fileImport.existsSync()) {
     fileImport.createSync(recursive: true);
+    var str = '';
+    str += "export 'package:flutter/material.dart';\n";
+    str += "export 'package:figma_theme/extension/colors.dart';\n";
+    fileImport.writeAsStringSync(str);
   }
   String strImport = '';
+  print('generatedTheme.files ${generatedTheme.files}');
+  print('generatedTheme.files ${generatedTheme.themeInstanceName}');
   await Future.wait(generatedTheme.files.entries.map((fileEntry) async {
+    print('fileEntry ${fileEntry.key}');
+    print('fileEntry value ${fileEntry.value}');
     final file = File(join('lib', folder, '${fileEntry.key}.dart'));
     if (!file.existsSync()) {
       file.createSync(recursive: true);
@@ -123,15 +131,18 @@ Future<void> _createFile(
     strImport +=
         "export 'package:${pubspecConfig.projectName}/$folder/${fileEntry.key}.dart';\n";
   }));
-  fileImport.writeAsStringSync(strImport,mode: FileMode.append);
+  fileImport.writeAsStringSync(strImport, mode: FileMode.append);
 }
 
 Future<Map<String, Map<String, dynamic>>> _readFiles(
     Iterable<File> themeFiles) async {
   final contents = <String, Map<String, dynamic>>{};
-  await Future.wait(themeFiles.map((file) async =>
-      contents[file.path.substring(file.path.lastIndexOf('/') + 1)] =
-          jsonDecode(await file.readAsString())));
+  await Future.wait(themeFiles.map((file) async {
+    // return contents[file.path.substring(file.path.lastIndexOf('/') + 1)] =
+    //       jsonDecode(await file.readAsString());
+    return contents[file.path.substring(file.path.indexOf('theme/') + 6)] =
+        jsonDecode(await file.readAsString());
+  }));
   return contents;
 }
 
