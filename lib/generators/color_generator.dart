@@ -78,6 +78,9 @@ class ColorGenerator extends BaseGenerator {
               (color.value.replaceFirst('\$', '') as String).camelCase;
           return 'const $key = $colorValue;\n';
         }
+        if(isNumeric(color.value)){
+          return 'const $key = ${double.parse(color.value)};\n';
+        }
       } else if (color.value is Map<String, dynamic>) {
         var colorValue = '';
         colorValue += '{';
@@ -156,6 +159,14 @@ class ColorGenerator extends BaseGenerator {
 
   bool _isColor(dynamic data) =>
       data is Map<String, dynamic> && data['type'] == 'color';
+  bool isNumeric(String str) {
+    try{
+      var value = double.parse(str);
+      return true;
+    } on FormatException {
+      return false;
+    }
+  }
   String removeSpecial(String value) {
     var value0 = value;
     if (!RegExp(r"^[a-zA-Z][\w]*$").hasMatch(value)) {
