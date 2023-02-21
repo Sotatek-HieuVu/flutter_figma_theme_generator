@@ -38,3 +38,7 @@ TODO: Tell users more about the package: where to find more information, how to
 contribute to the package, how to file issues, what response they can expect
 from the package authors, and more.
 # flutter_figma_theme_generator
+#generated
+With a Dart package, run dart run build_runner build in the package directory.
+
+With a Flutter package, run flutter pub run build_runner build in your package directory

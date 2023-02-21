@@ -4,8 +4,8 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:flutter_figma_theme_generator/config/pubspec_config.dart';
-import 'package:flutter_figma_theme_generator/generators/color_generator.dart';
 import 'package:flutter_figma_theme_generator/generators/current_theme_generator.dart';
+import 'package:flutter_figma_theme_generator/generators/file_generator.dart';
 import 'package:flutter_figma_theme_generator/generators/font_generator.dart';
 import 'package:flutter_figma_theme_generator/generators/theme_generator.dart';
 import 'package:flutter_figma_theme_generator/model/generated_content.dart';
@@ -50,7 +50,7 @@ Future<void> main(List<String> args) async {
       .whereType<File>()
       .where((e) => e.path.endsWith('.json'));
   final fontGenerator = FontGenerator();
-  final nonThemeGenerators = [fontGenerator, ColorGenerator()];
+  final nonThemeGenerators = [fontGenerator, FileGenerator()];
   final contents = await _readFiles(themeFiles);
   var defaultTheme = pubspecConfig.defaultTheme ??
       contents.entries.firstWhere((element) {
@@ -115,11 +115,7 @@ Future<void> _createFile(
     fileImport.writeAsStringSync(str);
   }
   String strImport = '';
-  print('generatedTheme.files ${generatedTheme.files}');
-  print('generatedTheme.files ${generatedTheme.themeInstanceName}');
   await Future.wait(generatedTheme.files.entries.map((fileEntry) async {
-    print('fileEntry ${fileEntry.key}');
-    print('fileEntry value ${fileEntry.value}');
     final file = File(join('lib', folder, '${fileEntry.key}.dart'));
     if (!file.existsSync()) {
       file.createSync(recursive: true);

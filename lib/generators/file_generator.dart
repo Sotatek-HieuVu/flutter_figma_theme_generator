@@ -2,9 +2,10 @@ import 'dart:math';
 import 'package:flutter_figma_theme_generator/config/pubspec_config.dart';
 import 'package:flutter_figma_theme_generator/generators/theme_generator.dart';
 import 'package:flutter_figma_theme_generator/model/generated_content.dart';
+import 'package:flutter_figma_theme_generator/model/generated_value.dart';
 import 'package:flutter_figma_theme_generator/utils/case_utils.dart';
 
-class ColorGenerator extends BaseGenerator {
+class FileGenerator extends BaseGenerator {
   final _warnings = <String>[];
 
   @override
@@ -33,6 +34,10 @@ class ColorGenerator extends BaseGenerator {
         key = color.key.replaceAll(RegExp('[^A-Za-z0-9]'), '');
       }
       if (color.value is String) {
+        if (color.value.startsWith("FontWeight") ||
+            color.value.startsWith("TextDecoration")) {
+          return 'const $key = ${color.value};\n';
+        }
         if (color.value.startsWith("#")) {
           // return 'Color $key = HexColor.fromHex("${color.value}");\n';
           return 'const $key = Color(0xff${color.value.toString().replaceFirst('#', '')});\n';
@@ -63,9 +68,9 @@ class ColorGenerator extends BaseGenerator {
               .toList();
           return 'const $key = Color.fromRGBO(${rgbList[0]}, ${rgbList[1]}, ${rgbList[1]}, 1.0);\n';
         }
-        // if (color.value.startsWith("linear-gradient")) {
-        //   return 'LinearGradient ${color.key} = ${linearGradientColor(color.value)};\n';
-        // }
+        if (color.value.startsWith("linear-gradient")) {
+          return 'const LinearGradient ${color.key} = ${linearGradientColor(color.value)};\n';
+        }
         if (color.value.startsWith("{") && color.value.endsWith("}")) {
           var colorValue = (color.value
                   .replaceFirst('{', '')
@@ -78,34 +83,45 @@ class ColorGenerator extends BaseGenerator {
               (color.value.replaceFirst('\$', '') as String).camelCase;
           return 'const $key = $colorValue;\n';
         }
-        if(isNumeric(color.value)){
-          return 'const $key = ${double.parse(color.value)};\n';
+        if (isNumeric(color.value)) {
+          return 'const $key = ${int.parse(color.value)};\n';
         }
       } else if (color.value is Map<String, dynamic>) {
-        var colorValue = '';
-        colorValue += '{';
+        var valueFile = '';
+        valueFile += '{\n';
         color.value.forEach((k, v) {
-          colorValue += '"$k"';
-          colorValue += ' :';
+          valueFile += '  "$k": ';
           if (v is String && v.startsWith("{") && v.endsWith("}")) {
-            var colorValue0 =
+            var valueFile0 =
                 v.replaceFirst('{', '').replaceFirst('}', '').camelCase;
-            if (colorValue0.contains('%')) {
-              colorValue0 = colorValue0.replaceFirst('%', '');
+            if (valueFile0.contains('%')) {
+              valueFile0 = valueFile0.replaceFirst('%', '');
             }
-            colorValue += colorValue0;
+            valueFile += valueFile0;
           } else if (v is String && v.startsWith('\$')) {
-            var colorValue0 = v.replaceFirst('\$', '').camelCase;
-            colorValue += colorValue0;
+            var valueFile0 = v.replaceFirst('\$', '').camelCase;
+            valueFile += valueFile0;
           } else {
-            colorValue += '"$v"';
+            valueFile += '"$v"';
           }
-          colorValue += ', ';
+          valueFile += ',\n';
         });
-        colorValue += '}';
-        return 'const $key = $colorValue;\n';
+        valueFile += '}';
+        return 'const $key = $valueFile;\n';
       } else if (color.value is List) {
-        return 'const $key = "${color.value}";\n';
+        var valueFile = '';
+        valueFile += '[\n';
+        color.value.forEach((element) {
+          if (element is Map) {
+            valueFile += '  {\n';
+            element.forEach((key, value) {
+              valueFile += '    "$key": "$value",\n';
+            });
+            valueFile += '  },\n';
+          }
+        });
+        valueFile += ']';
+        return 'const $key = $valueFile;\n';
       }
       return 'const $key = "${color.value}";\n';
     }).join();
@@ -116,19 +132,44 @@ class ColorGenerator extends BaseGenerator {
   Map<String, dynamic> _generateColors(String key, Map<String, dynamic> data,
       Map<String, dynamic> colorPalette) {
     final colors = <String, dynamic>{};
-    for (final entry in data.entries) {
-      if (entry.key == 'value' && entry.value is String) {
-        //&& _isColor(data)
-        colors[key.camelCase] = '${entry.value}'.replaceAll('%', '');
-      } else if (entry.key == 'value' && entry.value is Map<String, dynamic>) {
-        colors[key.camelCase] = entry.value;
+    try {
+      var jsonData = GeneratedValue.fromJson(data);
+      switch (jsonData.type) {
+        case "fontWeights":
+          switch (jsonData.value) {
+            case "Bold":
+              colors[key.camelCase] = 'FontWeight.bold';
+              break;
+            case "Regular":
+              colors[key.camelCase] = 'FontWeight.w400';
+              break;
+            case "SemiBold":
+              colors[key.camelCase] = 'FontWeight.w600';
+              break;
+          }
+          break;
+        case "textDecoration":
+          if (jsonData.value == "Underline") {
+            colors[key.camelCase] = 'TextDecoration.underline';
+          } else if (jsonData.value == "none") {
+            colors[key.camelCase] = 'TextDecoration.none';
+          }
+          break;
+        default:
+          if (jsonData.value is String) {
+            colors[key.camelCase] = '${jsonData.value}'.replaceAll('%', '');
+          } else if (jsonData.value is Map<String, dynamic>) {
+            colors[key.camelCase] = jsonData.value;
+          } else if (jsonData.value is List) {
+            colors[key.camelCase] = jsonData.value;
+          }
       }
-      if (entry.key == 'value' && entry.value is List) {
-        colors[key.camelCase] = entry.value;
-      } else if (entry.value is Map<String, dynamic>) {
-        //!_isColorConfig(entry.key) &&
-        colors.addAll(_generateColors('${key}_${entry.key}'.camelCase,
-            entry.value as Map<String, dynamic>, colorPalette));
+    } catch (e) {
+      for (final entry in data.entries) {
+        if (entry.value is Map<String, dynamic>) {
+          colors.addAll(_generateColors('${key}_${entry.key}'.camelCase,
+              entry.value as Map<String, dynamic>, colorPalette));
+        }
       }
     }
     return colors;
@@ -160,13 +201,14 @@ class ColorGenerator extends BaseGenerator {
   bool _isColor(dynamic data) =>
       data is Map<String, dynamic> && data['type'] == 'color';
   bool isNumeric(String str) {
-    try{
-      var value = double.parse(str);
+    try {
+      var value = int.parse(str);
       return true;
     } on FormatException {
       return false;
     }
   }
+
   String removeSpecial(String value) {
     var value0 = value;
     if (!RegExp(r"^[a-zA-Z][\w]*$").hasMatch(value)) {
@@ -196,10 +238,10 @@ class ColorGenerator extends BaseGenerator {
       if (element.trim().startsWith('#')) {
         var arr = element.trim().split(' ');
         linearGradient +=
-            '       const Color(0xff${arr[0].replaceFirst('#', '')}).withOpacity(${int.parse(arr[1]) / 100}),\n';
+            '      Color(0x${prefixColor(arr[1])}${arr[0].replaceFirst('#', '')}),\n';
       }
     }
-    return 'LinearGradient(\n      begin: $begin,\n      end: $end, \n      colors: [\n$linearGradient      ])';
+    return 'LinearGradient(\n    begin: $begin,\n    end: $end, \n    colors: [\n$linearGradient    ])';
   }
 
   String hexOrRGBToColor(String colorStr) {
@@ -236,6 +278,57 @@ class ColorGenerator extends BaseGenerator {
       return 'Colors.transparent';
       // throw UnsupportedError(
       //     "Only hex, rgb, or rgba color format currently supported. String:  $colorStr");
+    }
+  }
+
+  prefixColor(String percent) {
+    if (!percent.endsWith('%')) {
+      percent = '$percent%';
+    }
+    switch (percent) {
+      case '95%':
+        return 'F2';
+      case '90%':
+        return 'E6';
+      case '85%':
+        return 'D9';
+      case '80%':
+        return 'CC';
+      case '75%':
+        return 'BF';
+      case '70%':
+        return 'B3';
+      case '65%':
+        return 'A6';
+      case '60%':
+        return '99';
+      case '55%':
+        return '8C';
+      case '50%':
+        return '80';
+      case '45%':
+        return '73';
+      case '40%':
+        return '66';
+      case '35%':
+        return '59';
+      case '30%':
+        return '4D';
+      case '25%':
+        return '40';
+      case '20%':
+        return '33';
+      case '15%':
+        return '26';
+      case '10%':
+        return '1A';
+      case '5%':
+        return '0D';
+      case '0%':
+        return '00';
+      case '100%':
+      default:
+        return 'FF';
     }
   }
 }

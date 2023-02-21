@@ -1,6 +1,5 @@
 import 'package:flutter_figma_theme_generator/config/pubspec_config.dart';
-import 'package:flutter_figma_theme_generator/generators/color_generator.dart';
-import 'package:flutter_figma_theme_generator/generators/font_generator.dart';
+import 'package:flutter_figma_theme_generator/generators/file_generator.dart';
 import 'package:flutter_figma_theme_generator/generators/theme_colors_generator.dart';
 import 'package:flutter_figma_theme_generator/model/generated_content.dart';
 
@@ -10,8 +9,8 @@ class ThemeGenerator {
   static GeneratedContent generateTheme(Map<String, dynamic> json,
       String themeFileName, PubspecConfig pubspecConfig) {
     final generators = [
-      ColorGenerator(),
-      FontGenerator(),
+      FileGenerator(),
+      // FontGenerator(),
     ];
     for (final generator in generators) {
       if (generator.matchesSchema(json)) {
