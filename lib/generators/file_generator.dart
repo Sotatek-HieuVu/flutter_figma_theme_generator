@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter_figma_theme_generator/config/pubspec_config.dart';
 import 'package:flutter_figma_theme_generator/generators/theme_generator.dart';
+import 'package:flutter_figma_theme_generator/model/generated_boxShadow.dart';
 import 'package:flutter_figma_theme_generator/model/generated_content.dart';
 import 'package:flutter_figma_theme_generator/model/generated_value.dart';
 import 'package:flutter_figma_theme_generator/utils/case_utils.dart';
@@ -35,7 +36,10 @@ class FileGenerator extends BaseGenerator {
       }
       if (color.value is String) {
         if (color.value.startsWith("FontWeight") ||
-            color.value.startsWith("TextDecoration")) {
+                color.value.startsWith("TextDecoration") ||
+                color.value.startsWith("TextStyle")
+            // || color.value.startsWith("Radius.circular")
+            ) {
           return 'const $key = ${color.value};\n';
         }
         if (color.value.startsWith("#")) {
@@ -84,40 +88,51 @@ class FileGenerator extends BaseGenerator {
           return 'const $key = $colorValue;\n';
         }
         if (isNumeric(color.value)) {
-          return 'const $key = ${int.parse(color.value)};\n';
+          return 'const $key = ${double.parse(color.value)};\n';
         }
       } else if (color.value is Map<String, dynamic>) {
-        var valueFile = '';
-        valueFile += '{\n';
-        color.value.forEach((k, v) {
-          valueFile += '  "$k": ';
-          if (v is String && v.startsWith("{") && v.endsWith("}")) {
-            var valueFile0 =
-                v.replaceFirst('{', '').replaceFirst('}', '').camelCase;
-            if (valueFile0.contains('%')) {
-              valueFile0 = valueFile0.replaceFirst('%', '');
+        print('color.valuecolor.valuecolor.value${color.value}');
+          var valueFile = '';
+          valueFile += '{\n';
+          color.value.forEach((k, v) {
+            valueFile += '  "$k": ';
+            if (v is String && v.startsWith("{") && v.endsWith("}")) {
+              var valueFile0 =
+                  v.replaceFirst('{', '').replaceFirst('}', '').camelCase;
+              if (valueFile0.contains('%')) {
+                valueFile0 = valueFile0.replaceFirst('%', '');
+              }
+              valueFile += valueFile0;
+            } else if (v is String && v.startsWith('\$')) {
+              var valueFile0 = v.replaceFirst('\$', '').camelCase;
+              valueFile += valueFile0;
+            } else {
+              valueFile += '"$v"';
             }
-            valueFile += valueFile0;
-          } else if (v is String && v.startsWith('\$')) {
-            var valueFile0 = v.replaceFirst('\$', '').camelCase;
-            valueFile += valueFile0;
-          } else {
-            valueFile += '"$v"';
-          }
-          valueFile += ',\n';
-        });
-        valueFile += '}';
-        return 'const $key = $valueFile;\n';
+            valueFile += ',\n';
+          });
+          valueFile += '}';
+          return 'const $key = $valueFile;\n';
       } else if (color.value is List) {
         var valueFile = '';
         valueFile += '[\n';
         color.value.forEach((element) {
-          if (element is Map) {
-            valueFile += '  {\n';
-            element.forEach((key, value) {
-              valueFile += '    "$key": "$value",\n';
-            });
-            valueFile += '  },\n';
+          try {
+            var shadows = GeneratedBoxShadow.fromJson(element);
+            valueFile += '  BoxShadow(\n';
+            valueFile += '    color: ${hexOrRGBToColor(shadows.color)},\n';
+            valueFile += '    spreadRadius: ${shadows.spread},\n';
+            valueFile += '    blurRadius: ${shadows.blur},\n';
+            valueFile += '    offset: Offset(${shadows.x}, ${shadows.y}),\n';
+            valueFile += '  ),\n';
+          } catch (e) {
+            if (element is Map) {
+              valueFile += '  {\n';
+              element.forEach((key, value) {
+                valueFile += '    "$key": "$value",\n';
+              });
+              valueFile += '  },\n';
+            }
           }
         });
         valueFile += ']';
@@ -135,6 +150,12 @@ class FileGenerator extends BaseGenerator {
     try {
       var jsonData = GeneratedValue.fromJson(data);
       switch (jsonData.type) {
+        // case "borderRadius":
+        //   colors[key.camelCase] = 'Radius.circular(${jsonData.value})';
+        //   break;
+        case "typography":
+          colors[key.camelCase] = jsonData.value;
+          break;
         case "fontWeights":
           switch (jsonData.value) {
             case "Bold":
@@ -202,7 +223,7 @@ class FileGenerator extends BaseGenerator {
       data is Map<String, dynamic> && data['type'] == 'color';
   bool isNumeric(String str) {
     try {
-      var value = int.parse(str);
+      var value = double.parse(str);
       return true;
     } on FormatException {
       return false;

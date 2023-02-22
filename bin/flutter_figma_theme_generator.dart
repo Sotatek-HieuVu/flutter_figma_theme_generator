@@ -50,7 +50,7 @@ Future<void> main(List<String> args) async {
       .whereType<File>()
       .where((e) => e.path.endsWith('.json'));
   final fontGenerator = FontGenerator();
-  final nonThemeGenerators = [fontGenerator, FileGenerator()];
+  final nonThemeGenerators = [FileGenerator()];//fontGenerator,
   final contents = await _readFiles(themeFiles);
   var defaultTheme = pubspecConfig.defaultTheme ??
       contents.entries.firstWhere((element) {
