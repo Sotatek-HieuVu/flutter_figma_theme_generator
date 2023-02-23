@@ -10,7 +10,11 @@ class GeneratedComposition {
       paddingBottom,
       paddingLeft,
       borderRadius,
-      itemSpacing;
+      itemSpacing,
+      width,
+      height,
+      verticalPadding,
+      horizontalPadding;
   GeneratedComposition({
     this.fill = '',
     this.paddingTop = '',
@@ -19,6 +23,10 @@ class GeneratedComposition {
     this.paddingLeft = '',
     this.borderRadius = '',
     this.itemSpacing = '',
+    this.width = '',
+    this.height = '',
+    this.verticalPadding = '',
+    this.horizontalPadding = '',
   });
   factory GeneratedComposition.fromJson(Map<String, dynamic> json) =>
       _$GeneratedCompositionFromJson(json);

@@ -3,6 +3,7 @@ import 'package:flutter_figma_theme_generator/config/pubspec_config.dart';
 import 'package:flutter_figma_theme_generator/generators/theme_generator.dart';
 import 'package:flutter_figma_theme_generator/model/generated_boxShadow.dart';
 import 'package:flutter_figma_theme_generator/model/generated_content.dart';
+import 'package:flutter_figma_theme_generator/model/generated_typography.dart';
 import 'package:flutter_figma_theme_generator/model/generated_value.dart';
 import 'package:flutter_figma_theme_generator/utils/case_utils.dart';
 
@@ -27,17 +28,49 @@ class FileGenerator extends BaseGenerator {
     var colorFile = '';
     // var fileName = path.snakeCase;
     var fileName = path;
-    colorFile +=
-        '''import 'package:${pubspecConfig.projectName}/styles/import.dart';\n\n''';
     colorFile += colors.entries.map((color) {
       var key = color.key;
       if (!RegExp(r"^[a-zA-Z][\w]*$").hasMatch(color.key)) {
         key = color.key.replaceAll(RegExp('[^A-Za-z0-9]'), '');
       }
+      if (color.value is GeneratedTypography) {
+        var value = color.value as GeneratedTypography;
+        var colorValue = '';
+        colorValue += 'TextStyle(\n';
+        if (value.fontFamily != null) {
+          colorValue += '  fontFamily: ${valueCameCase(value.fontFamily!)},\n';
+        }
+        if (value.fontWeight != null) {
+          colorValue += '  fontWeight: ${valueCameCase(value.fontWeight!)},\n';
+        }
+        if (value.lineHeight != null) {
+          colorValue += '  height: ${valueCameCase(value.lineHeight!)},\n';
+        }
+        if (value.fontSize != null) {
+          colorValue += '  fontSize: ${valueCameCase(value.fontSize!)},\n';
+        }
+        if (value.letterSpacing != null) {
+          colorValue +=
+              '  letterSpacing: ${isNumeric(value.letterSpacing!) ? double.parse(value.letterSpacing!) : valueCameCase(value.letterSpacing!)},\n';
+        }
+        if (value.textDecoration != null) {
+          colorValue +=
+              '  decoration: ${valueCameCase(value.textDecoration!)},\n';
+        }
+        if (value.textCase != null) {
+          colorValue += '  //"textCase": ${valueCameCase(value.textCase!)},\n';
+        }
+        colorValue += ');';
+        return 'const $key = $colorValue\n';
+      }
+      // if (color.value is GeneratedComposition) {
+      //
+      // }
       if (color.value is String) {
         if (color.value.startsWith("FontWeight") ||
                 color.value.startsWith("TextDecoration") ||
-                color.value.startsWith("TextStyle")
+                color.value.startsWith("TextStyle") ||
+                color.value.startsWith("BorderSide")
             // || color.value.startsWith("Radius.circular")
             ) {
           return 'const $key = ${color.value};\n';
@@ -50,16 +83,7 @@ class FileGenerator extends BaseGenerator {
           List rgbaList =
               color.value.substring(5, color.value.length - 1).split(",");
           if (rgbaList.length == 2) {
-            var color0 = '';
-            if (rgbaList[0] is String &&
-                rgbaList[0].toString().startsWith('{') &&
-                rgbaList[0].toString().endsWith('}')) {
-              color0 = rgbaList[0]
-                  .toString()
-                  .replaceFirst('{', '')
-                  .replaceFirst('}', '')
-                  .camelCase;
-            }
+            var color0 = valueCameCase(rgbaList[0]);
             return 'Color $key = $color0.withOpacity(${(int.parse((rgbaList[1].replaceAll(RegExp('[^0-9]'), '')))) / 100});\n';
           }
           return 'const $key = Color.fromRGBO(${int.parse(rgbaList[0])}, ${int.parse(rgbaList[1])}, ${int.parse(rgbaList[2])}, ${double.parse(rgbaList[3])});\n';
@@ -91,41 +115,39 @@ class FileGenerator extends BaseGenerator {
           return 'const $key = ${double.parse(color.value)};\n';
         }
       } else if (color.value is Map<String, dynamic>) {
-        print('color.valuecolor.valuecolor.value${color.value}');
-          var valueFile = '';
-          valueFile += '{\n';
-          color.value.forEach((k, v) {
-            valueFile += '  "$k": ';
-            if (v is String && v.startsWith("{") && v.endsWith("}")) {
-              var valueFile0 =
-                  v.replaceFirst('{', '').replaceFirst('}', '').camelCase;
-              if (valueFile0.contains('%')) {
-                valueFile0 = valueFile0.replaceFirst('%', '');
-              }
-              valueFile += valueFile0;
-            } else if (v is String && v.startsWith('\$')) {
-              var valueFile0 = v.replaceFirst('\$', '').camelCase;
-              valueFile += valueFile0;
-            } else {
-              valueFile += '"$v"';
-            }
-            valueFile += ',\n';
-          });
-          valueFile += '}';
-          return 'const $key = $valueFile;\n';
+        var valueFile = '';
+        valueFile += '{\n';
+        color.value.forEach((k, v) {
+          valueFile += '  "$k": ';
+          if (v is String && v.startsWith("{") && v.endsWith("}")) {
+            var valueFile0 =
+                v.replaceFirst('{', '').replaceFirst('}', '').camelCase;
+            // if (valueFile0.contains('%')) {
+            //   valueFile0 = valueFile0.replaceFirst('%', '');
+            // }
+            valueFile += valueFile0;
+          } else if (v is String && v.startsWith('\$')) {
+            var valueFile0 = v.replaceFirst('\$', '').camelCase;
+            valueFile += valueFile0;
+          } else {
+            valueFile += '"$v"';
+          }
+          valueFile += ',\n';
+        });
+        valueFile += '}';
+        return 'const $key = $valueFile;\n';
       } else if (color.value is List) {
         var valueFile = '';
         valueFile += '[\n';
         color.value.forEach((element) {
-          try {
-            var shadows = GeneratedBoxShadow.fromJson(element);
+          if (element is GeneratedBoxShadow) {
             valueFile += '  BoxShadow(\n';
-            valueFile += '    color: ${hexOrRGBToColor(shadows.color)},\n';
-            valueFile += '    spreadRadius: ${shadows.spread},\n';
-            valueFile += '    blurRadius: ${shadows.blur},\n';
-            valueFile += '    offset: Offset(${shadows.x}, ${shadows.y}),\n';
+            valueFile += '    color: ${hexOrRGBToColor(element.color)},\n';
+            valueFile += '    spreadRadius: ${element.spread},\n';
+            valueFile += '    blurRadius: ${element.blur},\n';
+            valueFile += '    offset: Offset(${element.x}, ${element.y}),\n';
             valueFile += '  ),\n';
-          } catch (e) {
+          } else {
             if (element is Map) {
               valueFile += '  {\n';
               element.forEach((key, value) {
@@ -153,8 +175,32 @@ class FileGenerator extends BaseGenerator {
         // case "borderRadius":
         //   colors[key.camelCase] = 'Radius.circular(${jsonData.value})';
         //   break;
+      case "letterSpacing":
+      case "lineHeights":
+        var value = jsonData.value.replaceFirst('%', '');
+        var value0 = isNumeric(value) ? (double.parse(value) / 100) : value;
+          colors[key.camelCase] = '$value0';
+          break;
         case "typography":
-          colors[key.camelCase] = jsonData.value;
+          colors[key.camelCase] = GeneratedTypography.fromJson(jsonData.value);
+          break;
+        case "border":
+          colors[key.camelCase] =
+              'BorderSide(width: ${jsonData.value['width']}, color: ${valueCameCase(jsonData.value['color'])})';
+          break;
+        // case "composition":
+        //   colors[key.camelCase] = GeneratedComposition.fromJson(jsonData.value);
+        //   break;
+        case "boxShadow":
+          if (jsonData.value is List) {
+            List values = [];
+            jsonData.value.forEach((element) {
+              values.add(GeneratedBoxShadow.fromJson(element));
+            });
+            colors[key.camelCase] = values;
+          } else {
+            colors[key.camelCase] = jsonData.value;
+          }
           break;
         case "fontWeights":
           switch (jsonData.value) {
@@ -178,7 +224,7 @@ class FileGenerator extends BaseGenerator {
           break;
         default:
           if (jsonData.value is String) {
-            colors[key.camelCase] = '${jsonData.value}'.replaceAll('%', '');
+            colors[key.camelCase] = '${jsonData.value}';
           } else if (jsonData.value is Map<String, dynamic>) {
             colors[key.camelCase] = jsonData.value;
           } else if (jsonData.value is List) {
@@ -194,6 +240,23 @@ class FileGenerator extends BaseGenerator {
       }
     }
     return colors;
+  }
+
+  String valueCameCase(String str) {
+    String value = '';
+    if (str.startsWith("{") && str.endsWith("}")) {
+      value = (str.replaceFirst('{', '').replaceFirst('}', '')).camelCase;
+      if (value.endsWith('%')) {
+        value = value.replaceFirst('%', '').camelCase;
+      }
+    }
+    if (str.startsWith('\$')) {
+      value = str.replaceFirst('\$', '').camelCase;
+    }
+    // if (str.endsWith('%')) {
+    //   value = str.replaceFirst('%', '').camelCase;
+    // }
+    return value;
   }
 
   String hslToHex(double hue, double saturation, double light, double opacity) {
