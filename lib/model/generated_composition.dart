@@ -5,6 +5,7 @@ part 'generated_composition.g.dart';
 @JsonSerializable()
 class GeneratedComposition {
   final String fill,
+      typography,
       paddingTop,
       paddingRight,
       paddingBottom,
@@ -17,6 +18,7 @@ class GeneratedComposition {
       horizontalPadding;
   GeneratedComposition({
     this.fill = '',
+    this.typography = '',
     this.paddingTop = '',
     this.paddingRight = '',
     this.paddingBottom = '',

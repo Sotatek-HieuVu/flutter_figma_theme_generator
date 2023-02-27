@@ -107,19 +107,12 @@ Future<void> _createFile(
     themeDirectory.createSync(recursive: true);
   }
   final fileImport = File(join('lib', folder, 'import.dart'));
-  final fileExport = File(join('lib', folder, 'export.dart'));
   if (!fileImport.existsSync()) {
     fileImport.createSync(recursive: true);
     var str = '';
     str += "export 'package:flutter/material.dart';\n";
     str += "export 'package:figma_theme/extension/colors.dart';\n";
     fileImport.writeAsStringSync(str);
-  }
-  if (!fileExport.existsSync()) {
-    fileExport.createSync(recursive: true);
-    var str = '';
-    str += "import 'package:flutter/material.dart';\n\n";
-    fileExport.writeAsStringSync(str);
   }
   String strImport = '';
   await Future.wait(generatedTheme.files.entries.map((fileEntry) async {
@@ -134,12 +127,6 @@ Future<void> _createFile(
         '''import 'package:${pubspecConfig.projectName}/styles/import.dart';\n\n''';
     await file.writeAsString(import);
     await file.writeAsString(fileEntry.value, mode: FileMode.append);
-    List listValue = fileEntry.value.split(';\n');
-    for (var element in listValue) {
-      if (!(fileExport.readAsStringSync().contains(element+';'))) {
-        fileExport.writeAsStringSync(element + ';\n', mode: FileMode.append);
-      }
-    }
     strImport +=
         "export 'package:${pubspecConfig.projectName}/$folder/${fileEntry.key}.dart';\n";
   }));

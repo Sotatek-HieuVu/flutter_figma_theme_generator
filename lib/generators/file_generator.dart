@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter_figma_theme_generator/config/pubspec_config.dart';
 import 'package:flutter_figma_theme_generator/generators/theme_generator.dart';
 import 'package:flutter_figma_theme_generator/model/generated_boxShadow.dart';
+import 'package:flutter_figma_theme_generator/model/generated_composition.dart';
 import 'package:flutter_figma_theme_generator/model/generated_content.dart';
 import 'package:flutter_figma_theme_generator/model/generated_typography.dart';
 import 'package:flutter_figma_theme_generator/model/generated_value.dart';
@@ -63,9 +64,17 @@ class FileGenerator extends BaseGenerator {
         colorValue += ');';
         return 'const $key = $colorValue\n';
       }
-      // if (color.value is GeneratedComposition) {
-      //
-      // }
+      if (color.value is GeneratedComposition) {
+        String colorValue = '';
+        colorValue += 'class ${key.upperCamelCase} {\n';
+        (color.value.toJson()).forEach((k, v) {
+          if (v != null && v != '') {
+            colorValue += '  static const $k = ${valueCameCase(v)};\n';
+          }
+        });
+        colorValue += '}\n\n';
+        return colorValue;
+      }
       if (color.value is String) {
         if (color.value.startsWith("FontWeight") ||
                 color.value.startsWith("TextDecoration") ||
@@ -175,10 +184,10 @@ class FileGenerator extends BaseGenerator {
         // case "borderRadius":
         //   colors[key.camelCase] = 'Radius.circular(${jsonData.value})';
         //   break;
-      case "letterSpacing":
-      case "lineHeights":
-        var value = jsonData.value.replaceFirst('%', '');
-        var value0 = isNumeric(value) ? (double.parse(value) / 100) : value;
+        case "letterSpacing":
+        case "lineHeights":
+          var value = jsonData.value.replaceFirst('%', '');
+          var value0 = isNumeric(value) ? (double.parse(value) / 100) : value;
           colors[key.camelCase] = '$value0';
           break;
         case "typography":
@@ -188,9 +197,9 @@ class FileGenerator extends BaseGenerator {
           colors[key.camelCase] =
               'BorderSide(width: ${jsonData.value['width']}, color: ${valueCameCase(jsonData.value['color'])})';
           break;
-        // case "composition":
-        //   colors[key.camelCase] = GeneratedComposition.fromJson(jsonData.value);
-        //   break;
+        case "composition":
+          colors[key.camelCase] = GeneratedComposition.fromJson(jsonData.value);
+          break;
         case "boxShadow":
           if (jsonData.value is List) {
             List values = [];
@@ -249,9 +258,10 @@ class FileGenerator extends BaseGenerator {
       if (value.endsWith('%')) {
         value = value.replaceFirst('%', '').camelCase;
       }
-    }
-    if (str.startsWith('\$')) {
+    } else if (str.startsWith('\$')) {
       value = str.replaceFirst('\$', '').camelCase;
+    } else {
+      value = str;
     }
     // if (str.endsWith('%')) {
     //   value = str.replaceFirst('%', '').camelCase;
@@ -279,26 +289,13 @@ class FileGenerator extends BaseGenerator {
         .padLeft(2, '0'); // convert to Hex and prefix "0" if needed
   }
 
-  bool _isColorConfig(dynamic data) =>
-      data is Map<String, dynamic> && data['type'] == 'Color-config';
-
-  bool _isColor(dynamic data) =>
-      data is Map<String, dynamic> && data['type'] == 'color';
   bool isNumeric(String str) {
     try {
-      var value = double.parse(str);
+      double.parse(str);
       return true;
     } on FormatException {
       return false;
     }
-  }
-
-  String removeSpecial(String value) {
-    var value0 = value;
-    if (!RegExp(r"^[a-zA-Z][\w]*$").hasMatch(value)) {
-      value0 = value.replaceAll(RegExp('[^A-Za-z0-9]'), '');
-    }
-    return value0;
   }
 
   String linearGradientColor(String colorStr) {
